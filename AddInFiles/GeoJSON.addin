@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>GeoJSON</Name>
+    <FullClassName>Architexor.GeoJSON.Application</FullClassName>
+    <Assembly>DLL File URL</Assembly>
+    <AddInId>72192eab-3c4b-42f6-8f60-c2804fe82784</AddInId>
+    <VendorId>ADSK</VendorId>
+    <VendorDescription>Architexor, Inc, www.architexor.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>

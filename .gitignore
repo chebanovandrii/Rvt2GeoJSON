@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/GeoJSON(2022)/CopilotIndices/0.2.1657.32929
+/.vs/Autodesk Development/v17
+/.vs/GeoJSON(2022)
+/GeoJSON/.vs
+/packages
