@@ -43,6 +43,7 @@ namespace Architexor.Forms.GeoJSON
 			this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
 			this.treeViewCategories = new System.Windows.Forms.TreeView();
 			this.comboBoxWithCheckBox = new System.Windows.Forms.ComboBox();
+			this.chk_curView = new System.Windows.Forms.CheckBox();
 			label1 = new System.Windows.Forms.Label();
 			label2 = new System.Windows.Forms.Label();
 			label3 = new System.Windows.Forms.Label();
@@ -166,12 +167,23 @@ namespace Architexor.Forms.GeoJSON
 			this.comboBoxWithCheckBox.TabIndex = 12;
 			this.comboBoxWithCheckBox.Visible = false;
 			// 
+			// chk_curView
+			// 
+			this.chk_curView.AutoSize = true;
+			this.chk_curView.Location = new System.Drawing.Point(215, 36);
+			this.chk_curView.Name = "chk_curView";
+			this.chk_curView.Size = new System.Drawing.Size(86, 17);
+			this.chk_curView.TabIndex = 13;
+			this.chk_curView.Text = "Current View";
+			this.chk_curView.UseVisualStyleBackColor = true;
+			// 
 			// FrmExport
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.SystemColors.Control;
 			this.ClientSize = new System.Drawing.Size(403, 623);
+			this.Controls.Add(this.chk_curView);
 			this.Controls.Add(this.comboBoxWithCheckBox);
 			this.Controls.Add(this.treeViewCategories);
 			this.Controls.Add(this.btnBrowse);
@@ -210,6 +222,7 @@ namespace Architexor.Forms.GeoJSON
 		private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
 		private System.Windows.Forms.TreeView treeViewCategories;
 		private System.Windows.Forms.ComboBox comboBoxWithCheckBox;
+		private System.Windows.Forms.CheckBox chk_curView;
 	}
 }
 

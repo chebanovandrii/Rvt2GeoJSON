@@ -121,21 +121,102 @@ namespace Architexor.Commands.GeoJSON
 			latitude = frm.Latitude;
 			longitude = frm.Longitude;
 			angleInDegrees = frm.Angle;
-			
-			foreach (Level level in levels)
-			{
-				GeoJSONExporter exporter = new GeoJSONExporter(doc
-					, level
-					, frm.GetSelectedCategories()
-					, longitude
-					, latitude
-					, basePointX
-					, basePointY
-					, angleInDegrees * Math.PI / 180);
-				string sPath = frm.Path;
-				exporter.Export(sPath + "\\geojson_" + level.Id + "_" + level.Name + ".json");
-			}
+			bool curView = frm.CurView;
+			bool isValidView = false;
+			if (curView) {
+				switch (doc.ActiveView.ViewType)
+				{
+					case ViewType.Undefined:
+						break;
+					case ViewType.FloorPlan:
+						isValidView = true;
+						break;
+					case ViewType.EngineeringPlan:
+						isValidView = true;
+						break;
+					case ViewType.AreaPlan:
+						isValidView = true;
+						break;
+					case ViewType.CeilingPlan:
+						isValidView = true;
+						break;
+					case ViewType.Elevation:
+						break;
+					case ViewType.Section:
+						break;
+					case ViewType.Detail:
+						break;
+					case ViewType.ThreeD:
+						break;
+					case ViewType.Schedule:
+						break;
+					case ViewType.DraftingView:
+						break;
+					case ViewType.DrawingSheet:
+						break;
+					case ViewType.Legend:
+						break;
+					case ViewType.Report:
+						break;
+					case ViewType.ProjectBrowser:
+						break;
+					case ViewType.SystemBrowser:
+						break;
+					case ViewType.CostReport:
+						break;
+					case ViewType.LoadsReport:
+						break;
+					case ViewType.PresureLossReport:
+						break;
+					case ViewType.PanelSchedule:
+						break;
+					case ViewType.ColumnSchedule:
+						break;
+					case ViewType.Walkthrough:
+						break;
+					case ViewType.Rendering:
+						break;
+					case ViewType.SystemsAnalysisReport:
+						break;
+					case ViewType.Internal:
+						break;
+					default:
+						break;
+				}
+				if (isValidView)
+				{
+					GeoJSONExporter exporter = new GeoJSONExporter(doc
+							, frm.GetSelectedCategories()
+							, longitude
+							, latitude
+							, basePointX
+							, basePointY
+							, angleInDegrees * Math.PI / 180);
 
+					string sPath = frm.Path;
+					exporter.Export(sPath + "\\geojson_" + doc.Title + "_" + doc.ActiveView.Name + "_" + doc.ActiveView.ViewType + ".json");
+				}
+				else
+				{
+					return Result.Failed;
+				}
+			}
+			else
+			{
+				foreach (Level level in levels)
+				{
+					GeoJSONExporter exporter = new GeoJSONExporter(doc
+						, level
+						, frm.GetSelectedCategories()
+						, longitude
+						, latitude
+						, basePointX
+						, basePointY
+						, angleInDegrees * Math.PI / 180);
+					string sPath = frm.Path;
+					exporter.Export(sPath + "\\geojson_" + doc.Title + "_" + level.Id + "_" + level.Name + ".json");
+				}
+			}
 			return Result.Succeeded;
 		}
 	}

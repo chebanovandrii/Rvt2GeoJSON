@@ -16,6 +16,7 @@ namespace Architexor.Forms.GeoJSON
 		private List<Level> mLevels = null;
 		private string mPath = "D:\\";
 		private List<ACategory> mCategories = new List<ACategory>();
+		private bool mCurView = false;
 
 		//private System.Windows.Forms.Panel dropdownPanel;
 		//private CheckedListBox checkedListBoxCategories;
@@ -32,6 +33,7 @@ namespace Architexor.Forms.GeoJSON
 		public List<Level> Levels { get => mLevels; set => mLevels = value; }
 		public string Path { get => mPath; set => mPath = value; }
 		public List<ACategory> Categories { get => mCategories; set => mCategories = value; }
+		public bool CurView { get { return mCurView; } }
 
 		private void FrmExport_Load(object sender, EventArgs e)
 		{
@@ -45,15 +47,20 @@ namespace Architexor.Forms.GeoJSON
 
 
 			string[] list = [];
+			bool curView = false;
 
 			try
 			{
 				RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run\" + "Architexor" + "\\GeoJSON");
 				string s = key.GetValue("Preset").ToString();
+				curView = Convert.ToBoolean(key.GetValue("CurrentView"));
 				list = s.Split(',');
 				key.Close();
 			}
 			catch (Exception) { }
+
+			mCurView = curView;
+			chk_curView.Checked = curView;
 
 			foreach (ACategory category in mCategories)
 			{
@@ -272,6 +279,7 @@ namespace Architexor.Forms.GeoJSON
 
 			//	
 			List<string> list = GetSelectedCategories();
+			mCurView = chk_curView.Checked;
 
 			RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
 			RegistryKey subkey = key.CreateSubKey("Architexor");
@@ -284,6 +292,7 @@ namespace Architexor.Forms.GeoJSON
 			key = subkey.CreateSubKey("GeoJSON");
 			subkey.Close();
 			key.SetValue("Preset", string.Join(",", list));
+			key.SetValue("CurrentView", mCurView);
 
 			DialogResult = DialogResult.OK;
 			Close();

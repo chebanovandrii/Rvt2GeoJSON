@@ -128,8 +128,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>powershell -Command "(gc $(ProjectDir)..\AddInFiles\GeoJSON.addin) -replace 'DLL File URL', '$(ProjectDir)..\bin\$(Configuration)\$(RevitVersion)\GeoJSON.dll' | Out-File -Encoding utf8 tmp"
-copy tmp "$(ProgramData)\Autodesk\REVIT\Addins\$(RevitVersion)\GeoJSON.addin"
-del tmp</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

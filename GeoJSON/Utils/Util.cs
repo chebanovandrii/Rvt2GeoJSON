@@ -2244,45 +2244,45 @@ const T f = ( ay * bx ) - ( ax * by );
 			return faceList;
 		}
 
-		public static double ComputeArea(XYZ[] points)
-		{
-			List<CurveLoop> cls = new List<CurveLoop>();
-			CurveLoop cl = new CurveLoop();
-			XYZ lastPt = null;
-			for (int j = 0; j < points.Length; j++)
-			{
-				XYZ ptStart, ptEnd;
-				if (j < points.Length - 1)
-				{
-					ptStart = points[j];
-					ptEnd = points[j + 1];
-				}
-				else
-				{
-					ptStart = points[j];
-					ptEnd = points[0];
-				}
-				if (Util.IsEqual(ptStart, ptEnd))
-				{
-					//	Error
-				}
-				else
-				{
-					if (lastPt == null)
-						lastPt = ptStart;
+		//public static double ComputeArea(XYZ[] points)
+		//{
+		//	List<CurveLoop> cls = new List<CurveLoop>();
+		//	CurveLoop cl = new CurveLoop();
+		//	XYZ lastPt = null;
+		//	for (int j = 0; j < points.Length; j++)
+		//	{
+		//		XYZ ptStart, ptEnd;
+		//		if (j < points.Length - 1)
+		//		{
+		//			ptStart = points[j];
+		//			ptEnd = points[j + 1];
+		//		}
+		//		else
+		//		{
+		//			ptStart = points[j];
+		//			ptEnd = points[0];
+		//		}
+		//		if (Util.IsEqual(ptStart, ptEnd))
+		//		{
+		//			//	Error
+		//		}
+		//		else
+		//		{
+		//			if (lastPt == null)
+		//				lastPt = ptStart;
 
-					try
-					{
-						cl.Append(Line.CreateBound(ptStart, ptEnd));
-						lastPt = ptEnd;
-					}
-					catch (Exception) { }
-				}
-			}
-			cls.Add(cl);
-			double fArea = ExporterIFCUtils.ComputeAreaOfCurveLoops(cls);
-			return fArea;
-		}
+		//			try
+		//			{
+		//				cl.Append(Line.CreateBound(ptStart, ptEnd));
+		//				lastPt = ptEnd;
+		//			}
+		//			catch (Exception) { }
+		//		}
+		//	}
+		//	cls.Add(cl);
+		//	double fArea = ExporterIFCUtils.ComputeAreaOfCurveLoops(cls);
+		//	return fArea;
+		//}
 
 		public static Face GetBaseFaceOfPart(Document doc, Part p, bool isTop = true)
 		{

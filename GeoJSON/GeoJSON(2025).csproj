@@ -34,7 +34,7 @@
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);REVIT2025</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup>    
+  <PropertyGroup>
     <RevitVersion Condition="$(DefineConstants.Contains('2019'))">2019</RevitVersion>
     <RevitVersion Condition="$(DefineConstants.Contains('2020'))">2020</RevitVersion>
     <RevitVersion Condition="$(DefineConstants.Contains('2021'))">2021</RevitVersion>
@@ -56,10 +56,19 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <OutputPath>..\bin\$(Configuration)\$(RevitVersion)\</OutputPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <IntermediateOutputPath>C:\Users\Storm\AppData\Local\Temp\vs1FEA.tmp\Debug\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <IntermediateOutputPath>C:\Users\Storm\AppData\Local\Temp\vs1FEA.tmp\Release\</IntermediateOutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json.Bson, Version=1.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.Bson.1.0.3\lib\net45\Newtonsoft.Json.Bson.dll</HintPath>
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="System" />

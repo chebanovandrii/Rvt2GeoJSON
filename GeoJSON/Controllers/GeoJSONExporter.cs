@@ -2,6 +2,8 @@
 using Architexor.Utils;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.Macros;
+using Autodesk.Revit.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -22,6 +24,7 @@ namespace Architexor.Controllers.GeoJSON
 		private List<string> mCategories = null;
 		private double mLongitudeOffset;
 		private double mLatitudeOffset;
+		private bool mCurViewOnly = false;
 
 		public GeoJSONExporter(Document document, Level level, List<string> categories, double longitude, double latitude, double longitudeOffset, double latitudeOffset, double angle)
 		{
@@ -33,9 +36,110 @@ namespace Architexor.Controllers.GeoJSON
 			mCategories = categories;
 			mLongitudeOffset = longitudeOffset;
 			mLatitudeOffset = latitudeOffset;
+			mCurViewOnly = false;
+		}
+
+		public GeoJSONExporter(Document document, List<string> categories, double longitude, double latitude, double longitudeOffset, double latitudeOffset, double angle)
+		{
+			mDocument = document;
+			mLevel = document.ActiveView.GenLevel;
+			mLongitude = longitude;
+			mLatitude = latitude;
+			mAngle = angle;
+			mCategories = categories;
+			mLongitudeOffset = longitudeOffset;
+			mLatitudeOffset = latitudeOffset;
+			mCurViewOnly = true;
 		}
 
 		#region Standard elements
+		private List<Element> GetVisibleElements()
+		{
+			View curView = mDocument.ActiveView; // Get the active view
+			if (!(curView is ViewPlan curPlan))
+				return null;
+
+			// Collect all elements visible in the current view
+			List<Element> elements = new FilteredElementCollector(mDocument, curView.Id)
+				.WhereElementIsNotElementType()
+#if REVIT2024 || REVIT2025
+				.Where(e => (e.Category != null)
+				&& (e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines)
+				&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name)))
+#else
+				.Where(e => (e.Category != null)
+				&& (e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines)
+				&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name)))
+#endif
+				.ToList();
+
+			List<Level> levels = new FilteredElementCollector(mDocument)
+															.OfClass(typeof(Level))
+															.Cast<Level>()
+															.ToList();
+
+			levels.Sort((level1, level2) => level1.Elevation.CompareTo(level2.Elevation));
+			int nIndex = levels.FindIndex(x => x.Id == mLevel.Id);
+			double elevation = mLevel.Elevation;
+
+			List<Element> etc;
+			if (nIndex == 0) //	First Level
+			{
+				etc = new FilteredElementCollector(mDocument)
+					.OfClass(typeof(FamilyInstance))
+					.WhereElementIsNotElementType()
+#if REVIT2024 || REVIT2025
+					.Where(e => e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.Value == -1)
+#else
+					.Where(e => e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.IntegerValue == -1)
+#endif
+					.Where(e => (e.get_BoundingBox(null)?.Max.Z + e.get_BoundingBox(null)?.Min.Z) / 2 < elevation)
+					.ToList();
+			}
+			else if (nIndex == levels.Count - 1)  //	Last Level
+			{
+				etc = new FilteredElementCollector(mDocument)
+					.OfClass(typeof(FamilyInstance))
+					.WhereElementIsNotElementType()
+#if REVIT2024 || REVIT2025
+					.Where(e => e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.Value == -1)
+#else
+					.Where(e => e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.IntegerValue == -1)
+#endif
+					.Where(e => (e.get_BoundingBox(null)?.Max.Z + e.get_BoundingBox(null)?.Min.Z) / 2 > elevation)
+					.ToList();
+			}
+			else
+			{
+				etc = new FilteredElementCollector(mDocument)
+					.OfClass(typeof(FamilyInstance))
+					.WhereElementIsNotElementType()
+#if REVIT2024 || REVIT2025
+					.Where(e => e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.Value == -1)
+#else
+					.Where(e => e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines
+						&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
+						&& e.LevelId.IntegerValue == -1)
+#endif
+					.Where(e => (e.get_BoundingBox(null)?.Max.Z + e.get_BoundingBox(null)?.Min.Z) / 2 > elevation
+												&& (e.get_BoundingBox(null)?.Max.Z + e.get_BoundingBox(null)?.Min.Z) / 2 < levels[nIndex + 1].Elevation)
+					.ToList();
+			}
+
+			elements.AddRange(etc);
+
+			return elements;
+		}
 		private List<Element> GetElements()
 		{
 			//	Collect elements in the specified level
@@ -43,16 +147,15 @@ namespace Architexor.Controllers.GeoJSON
 															.WherePasses(new ElementLevelFilter(mLevel.Id))
 															.WhereElementIsNotElementType()
 #if REVIT2024 || REVIT2025
-															.Where(e => e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines
-															&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
-															)
+															.Where(e => (e.Category != null)
+				&& (e.Category.Id.Value != (int)BuiltInCategory.OST_RoomSeparationLines)
+				&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name)))
 #else
-															.Where(e => e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines
-															&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name))
-															)
+															.Where(e => (e.Category != null)
+				&& (e.Category.Id.IntegerValue != (int)BuiltInCategory.OST_RoomSeparationLines)
+				&& (mCategories.Count == 0 || mCategories.Contains(e.Category.Name)))
 #endif
 															.ToList();
-
 
 			List<Level> levels = new FilteredElementCollector(mDocument)
 															.OfClass(typeof(Level))
@@ -134,7 +237,7 @@ namespace Architexor.Controllers.GeoJSON
 			Options geomOptions = new Options
 			{
 				ComputeReferences = true,
-				IncludeNonVisibleObjects = false,
+				IncludeNonVisibleObjects = true,
 				View = floorPlanView, //	Use the target floor plan view
 			};
 
@@ -158,7 +261,7 @@ namespace Architexor.Controllers.GeoJSON
 			}
 			return lines;
 		}
-#endregion
+		#endregion
 
 		#region Stairs functions
 		private List<Element> GetStairs()
@@ -206,6 +309,11 @@ namespace Architexor.Controllers.GeoJSON
 		#region Common functions
 		private View GetFloorPlanView()
 		{
+			if (mCurViewOnly)
+			{
+				return mDocument.ActiveView;
+			}
+
 			//	Filter views to get floor plan views only
 			FilteredElementCollector viewCollector = new FilteredElementCollector(mDocument)
 				.OfClass(typeof(ViewPlan))
@@ -215,7 +323,9 @@ namespace Architexor.Controllers.GeoJSON
 			{
 				//	Ensure it's a floor plan view and matches the target level
 				if (view.ViewType == ViewType.FloorPlan && view.GenLevel?.Id == mLevel.Id)
+				{
 					return view;
+				}
 			}
 
 			return null;
@@ -228,9 +338,12 @@ namespace Architexor.Controllers.GeoJSON
 			//	Calculate points along the arc
 			for (int i = 0; i <= segmentCount; i++)
 			{
-				double parameter = arc.GetEndParameter(0) + (arc.GetEndParameter(1) - arc.GetEndParameter(0)) * i / segmentCount;
-				XYZ point = arc.Evaluate(parameter, false);
-				arcPoints.Add(point);
+				if (arc.IsBound)
+				{
+					double parameter = arc.GetEndParameter(0) + (arc.GetEndParameter(1) - arc.GetEndParameter(0)) * i / segmentCount;
+					XYZ point = arc.Evaluate(parameter, false);
+					arcPoints.Add(point);
+				}
 			}
 
 			return arcPoints;
@@ -239,8 +352,13 @@ namespace Architexor.Controllers.GeoJSON
 		private bool IsPlanar(Curve curve)
 		{
 			//	Check if a curve is planar by verifying Z-coordinates (floor plan is assumed horizontal)
-			return Math.Abs(curve.GetEndPoint(0).Z - curve.GetEndPoint(1).Z) < 0.001;
+			if (curve.IsBound)
+			{
+				return Math.Abs(curve.GetEndPoint(0).Z - curve.GetEndPoint(1).Z) < 0.001;
+			}
+			return true;
 			//&& Math.Abs(curve.GetEndPoint(0).Z - level.Elevation) < 0.001;
+			//return true;
 		}
 
 		private bool IsPlanarFaceOnLevel(PlanarFace face)
@@ -411,15 +529,33 @@ namespace Architexor.Controllers.GeoJSON
 		public List<GeoJsonFeature> CreateGeoJsonFeatures()
 		{
 			List<GeoJsonFeature> features = new List<GeoJsonFeature>();
-			List<Element> elements = GetElements();
 
-			foreach (var element in elements)
+			if (mCurViewOnly)
 			{
-				List<List<XYZ>> lines = GetElementPoints(element);
-				if (lines.Count > 0)
+				List<Element> elements = GetVisibleElements();
+
+				foreach (var element in elements)
 				{
-					GeoJsonFeature feature = CreateGeoJsonFeature(element, lines);
-					features.Add(feature);
+					List<List<XYZ>> lines = GetElementPoints(element);
+					if (lines.Count > 0)
+					{
+						GeoJsonFeature feature = CreateGeoJsonFeature(element, lines);
+						features.Add(feature);
+					}
+				}
+			}
+			else
+			{
+				List<Element> elements = GetElements();
+
+				foreach (var element in elements)
+				{
+					List<List<XYZ>> lines = GetElementPoints(element);
+					if (lines.Count > 0)
+					{
+						GeoJsonFeature feature = CreateGeoJsonFeature(element, lines);
+						features.Add(feature);
+					}
 				}
 			}
 
@@ -505,7 +641,11 @@ namespace Architexor.Controllers.GeoJSON
 						geoJsonCoordinates.Add(ConvertToGeoJsonCoordinates(point));
 					}
 					//	Define geometry type (Polygon)
-					Polygon geometry = new Polygon
+					//Polygon geometry = new Polygon
+					//{
+					//	coordinates = new List<List<double[]>> { geoJsonCoordinates }
+					//};
+					MultiLineString geometry = new MultiLineString
 					{
 						coordinates = new List<List<double[]>> { geoJsonCoordinates }
 					};
