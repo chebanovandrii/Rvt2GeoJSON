@@ -364,17 +364,17 @@ namespace Architexor.Forms.GeoJSON
 			TreeNode parentNode = treeNode.Parent;
 			while (parentNode != null)
 			{
-				bool allChecked = true;
+				bool allUnChecked = true;
 				foreach (TreeNode sibling in parentNode.Nodes)
 				{
-					if (!sibling.Checked)
+					if (sibling.Checked)
 					{
-						allChecked = false;
+						allUnChecked = false;
 						break;
 					}
 				}
 
-				parentNode.Checked = allChecked;
+				parentNode.Checked = !allUnChecked;
 				parentNode = parentNode.Parent;
 			}
 		}

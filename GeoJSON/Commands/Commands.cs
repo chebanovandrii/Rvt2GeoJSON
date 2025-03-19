@@ -18,6 +18,10 @@ namespace Architexor.Commands.GeoJSON
 		{
 			Document doc = commandData.Application.ActiveUIDocument.Document;
 
+
+			XYZ internalOrigin = XYZ.Zero; // Internal Origin is always (0,0,0) in Revit
+			XYZ surveyPoint = null;
+
 			ProjectLocation loc = doc.ActiveProjectLocation;loc.GetSiteLocation();
 			ProjectPosition position = loc.GetProjectPosition(XYZ.Zero);
 			SiteLocation siteLoc = loc.GetSiteLocation();
@@ -25,6 +29,7 @@ namespace Architexor.Commands.GeoJSON
 			double longitude = loc.GetSiteLocation().Longitude * (180 / Math.PI);
 			double latitude = loc.GetSiteLocation().Latitude * (180 / Math.PI);
 			double angleInDegrees = position.Angle * (180 / Math.PI);
+
 
 			FilteredElementCollector locations = new FilteredElementCollector(doc).OfClass(typeof(BasePoint));
 			/*double basePointLongitude = 0, basePointLatitude = 0, surveyPointLongitude = 0, surveyPointLatitude = 0;
@@ -65,15 +70,31 @@ namespace Architexor.Commands.GeoJSON
 			//basePointLongitude = 0;
 			//basePointLatitude = 0;*/
 			double basePointX = 0, basePointY = 0;
-			foreach(var locationPoint in locations)
+			foreach (var locationPoint in locations)
 			{
 				BasePoint basePoint = locationPoint as BasePoint;
-				if(basePoint.IsShared != true)
+				//if (basePoint.IsShared != true)
+				if(basePoint.Category.Name == "Survey Point")
 				{
-					basePointX = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_EASTWEST_PARAM).AsDouble();
-					basePointY = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_NORTHSOUTH_PARAM).AsDouble();
+					// survey point
+					surveyPoint = basePoint.Position;
+					basePointX = basePoint.Position.X;
+					basePointY = basePoint.Position.Y;
+					TaskDialog.Show("Survey Point",
+						$"X: {basePointX} ft\nY: {basePointY} ft");
+				} else
+				{
+					//basePointX = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_EASTWEST_PARAM).AsDouble();
+					//basePointY = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_NORTHSOUTH_PARAM).AsDouble();
+					basePointX = basePoint.Position.X;
+					basePointY = basePoint.Position.Y;
+					TaskDialog.Show("Project Base Point",
+						$"X: {basePointX} ft\nY: {basePointY} ft");
 				}
 			}
+
+			basePointX = surveyPoint.X;
+			basePointY = surveyPoint.Y;
 
 			//	Get All Levels
 			List<Level> levels = new FilteredElementCollector(doc)
