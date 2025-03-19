@@ -80,16 +80,14 @@ namespace Architexor.Commands.GeoJSON
 					surveyPoint = basePoint.Position;
 					basePointX = basePoint.Position.X;
 					basePointY = basePoint.Position.Y;
-					TaskDialog.Show("Survey Point",
-						$"X: {basePointX} ft\nY: {basePointY} ft");
+					//TaskDialog.Show("Survey Point", $"X: {basePointX} ft\nY: {basePointY} ft");
 				} else
 				{
 					//basePointX = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_EASTWEST_PARAM).AsDouble();
 					//basePointY = basePoint.get_Parameter(BuiltInParameter.BASEPOINT_NORTHSOUTH_PARAM).AsDouble();
 					basePointX = basePoint.Position.X;
 					basePointY = basePoint.Position.Y;
-					TaskDialog.Show("Project Base Point",
-						$"X: {basePointX} ft\nY: {basePointY} ft");
+					//TaskDialog.Show("Project Base Point", $"X: {basePointX} ft\nY: {basePointY} ft");
 				}
 			}
 
