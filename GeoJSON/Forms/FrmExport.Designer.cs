@@ -44,6 +44,7 @@ namespace Architexor.Forms.GeoJSON
 			this.treeViewCategories = new System.Windows.Forms.TreeView();
 			this.comboBoxWithCheckBox = new System.Windows.Forms.ComboBox();
 			this.chk_curView = new System.Windows.Forms.CheckBox();
+			this.cmb_ExportType = new System.Windows.Forms.ComboBox();
 			label1 = new System.Windows.Forms.Label();
 			label2 = new System.Windows.Forms.Label();
 			label3 = new System.Windows.Forms.Label();
@@ -177,12 +178,27 @@ namespace Architexor.Forms.GeoJSON
 			this.chk_curView.Text = "Current View";
 			this.chk_curView.UseVisualStyleBackColor = true;
 			// 
+			// cmb_ExportType
+			// 
+			this.cmb_ExportType.FormattingEnabled = true;
+			this.cmb_ExportType.Items.AddRange(new object[] {
+            "All",
+            "Selected Categories",
+            "Lighting Fixture Locations",
+            "Data Device Locations"});
+			this.cmb_ExportType.Location = new System.Drawing.Point(15, 595);
+			this.cmb_ExportType.Name = "cmb_ExportType";
+			this.cmb_ExportType.Size = new System.Drawing.Size(220, 21);
+			this.cmb_ExportType.TabIndex = 14;
+			this.cmb_ExportType.SelectedIndexChanged += new System.EventHandler(this.cmb_ExportType_SelectedIndexChanged);
+			// 
 			// FrmExport
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.SystemColors.Control;
 			this.ClientSize = new System.Drawing.Size(403, 623);
+			this.Controls.Add(this.cmb_ExportType);
 			this.Controls.Add(this.chk_curView);
 			this.Controls.Add(this.comboBoxWithCheckBox);
 			this.Controls.Add(this.treeViewCategories);
@@ -223,6 +239,7 @@ namespace Architexor.Forms.GeoJSON
 		private System.Windows.Forms.TreeView treeViewCategories;
 		private System.Windows.Forms.ComboBox comboBoxWithCheckBox;
 		private System.Windows.Forms.CheckBox chk_curView;
+		private System.Windows.Forms.ComboBox cmb_ExportType;
 	}
 }
 

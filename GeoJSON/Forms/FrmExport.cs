@@ -8,6 +8,14 @@ using Microsoft.Win32;
 
 namespace Architexor.Forms.GeoJSON
 {
+	public enum ExportType
+	{
+		All,
+		SelectedOnly,
+		LightingFixturePoints,
+		DataDevicePoints
+	}
+
 	public partial class FrmExport : System.Windows.Forms.Form
 	{
 		private double mLatitude = 0;
@@ -17,6 +25,7 @@ namespace Architexor.Forms.GeoJSON
 		private string mPath = "D:\\";
 		private List<ACategory> mCategories = new List<ACategory>();
 		private bool mCurView = false;
+		private ExportType mExportType = ExportType.All;
 
 		//private System.Windows.Forms.Panel dropdownPanel;
 		//private CheckedListBox checkedListBoxCategories;
@@ -34,9 +43,11 @@ namespace Architexor.Forms.GeoJSON
 		public string Path { get => mPath; set => mPath = value; }
 		public List<ACategory> Categories { get => mCategories; set => mCategories = value; }
 		public bool CurView { get { return mCurView; } }
+		public ExportType ExportType { get { return mExportType; } }
 
 		private void FrmExport_Load(object sender, EventArgs e)
 		{
+			cmb_ExportType.SelectedIndex = 0;
 			txtAngle.Text = mAngle.ToString();
 			txtLatitude.Text = mLatitude.ToString();
 			txtLongitude.Text = mLongitude.ToString();
@@ -51,11 +62,14 @@ namespace Architexor.Forms.GeoJSON
 
 			try
 			{
-				RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run\" + "Architexor" + "\\GeoJSON");
-				string s = key.GetValue("Preset").ToString();
-				curView = Convert.ToBoolean(key.GetValue("CurrentView"));
-				list = s.Split(',');
-				key.Close();
+				RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run\" + "Architexor" + "\\GeoJSON\\Export");
+				if (null != key)
+				{
+					string s = key.GetValue("Preset").ToString();
+					curView = Convert.ToBoolean(key.GetValue("CurrentView"));
+					list = s.Split(',');
+					key.Close();
+				}
 			}
 			catch (Exception) { }
 
@@ -281,18 +295,26 @@ namespace Architexor.Forms.GeoJSON
 			List<string> list = GetSelectedCategories();
 			mCurView = chk_curView.Checked;
 
-			RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-			RegistryKey subkey = key.CreateSubKey("Architexor");
-			key.Close();
 			try
 			{
-				subkey.DeleteSubKey("GeoJSON");
+				RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+				RegistryKey subkey = key.OpenSubKey("Architexor", true);
+				if (null == subkey)
+					subkey = key.CreateSubKey("Architexor", true);
+				key.Close();
+				key = subkey.OpenSubKey("GeoJSON", true);
+				if (null == key)
+					key = subkey.CreateSubKey("GeoJSON", true);
+				subkey.Close();
+				subkey = key.OpenSubKey("Export", true);
+				if (null == subkey)
+					subkey = key.CreateSubKey("Export", true);
+				key.Close();
+				subkey.SetValue("Preset", string.Join(",", list));
+				subkey.SetValue("CurrentView", mCurView);
+				subkey.Close();
 			}
 			catch (Exception) { }
-			key = subkey.CreateSubKey("GeoJSON");
-			subkey.Close();
-			key.SetValue("Preset", string.Join(",", list));
-			key.SetValue("CurrentView", mCurView);
 
 			DialogResult = DialogResult.OK;
 			Close();
@@ -376,6 +398,28 @@ namespace Architexor.Forms.GeoJSON
 
 				parentNode.Checked = !allUnChecked;
 				parentNode = parentNode.Parent;
+			}
+		}
+
+		private void cmb_ExportType_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			switch (cmb_ExportType.SelectedIndex)
+			{
+				case 0:
+					mExportType = ExportType.All;
+					break;
+				case 1:
+					mExportType = ExportType.SelectedOnly;
+					break;
+				case 2:
+					mExportType = ExportType.LightingFixturePoints;
+					break;
+				case 3:
+					mExportType = ExportType.DataDevicePoints;
+					break;
+				default:
+					mExportType = ExportType.All;
+					break;
 			}
 		}
 	}

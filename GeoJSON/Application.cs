@@ -5,6 +5,9 @@ using System.Windows.Media.Imaging;
 
 namespace Architexor.GeoJSON
 {
+	// Testing Site
+	// https://samples.azuremaps.com/geospatial-files/drag-and-drop-geojson-file-onto-map
+
 	public class Application : IExternalApplication
 	{
 		//	class instance
@@ -55,7 +58,9 @@ namespace Architexor.GeoJSON
 			//		IntPtr.Zero,
 			//		Int32Rect.Empty,
 			//		BitmapSizeOptions.FromEmptyOptions());
-			PushButtonData btn = new("btnExport", "Export GeoJSON", url, "Architexor.Commands.GeoJSON.Export");
+			PushButtonData btnExport = new("btnExport", "Export GeoJSON", url, "Architexor.Commands.GeoJSON.Export");
+			PushButtonData btnDevices = new("btnDevices", "Update Devices", url, "Architexor.Commands.GeoJSON.Devices");
+			PushButtonData btnParams = new("btnParams", "Assign Params", url, "Architexor.Commands.GeoJSON.AssignParams");
 			//{
 			//	Image = bs,
 			//	LargeImage = bs
@@ -64,7 +69,9 @@ namespace Architexor.GeoJSON
 			//  Create a ribbon panel
 			RibbonPanel panel = application.CreateRibbonPanel(tabName, "GeoJSON");
 
-			panel.AddItem(btn);
+			panel.AddItem(btnExport);
+			panel.AddItem(btnDevices);
+			panel.AddItem(btnParams);
 
 			return Result.Succeeded;
 		}

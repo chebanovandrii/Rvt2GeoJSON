@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "PanelToolBase(2025)": {
+      "commandName": "Project",
+      "commandLineArgs": "Revit2025.exe",
+      "workingDirectory": "C:\\Program Files\\Autodesk\\Revit 2025"
+    }
+  }
+}

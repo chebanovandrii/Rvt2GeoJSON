@@ -1,5 +1,6 @@
 ﻿#region Namespaces
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -9,21 +10,142 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using System.Collections;
-using Autodesk.Revit.DB.IFC;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
-using System.IO;
-using System.Net;
-using System.Text;
-
+using Architexor.GeoJSON.Base;
+using Newtonsoft.Json;
+using HtmlAgilityPack;
+using System.Text.RegularExpressions;
+using View = Autodesk.Revit.DB.View;
+using TaskDialog = Autodesk.Revit.UI.TaskDialog;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 
 #endregion // Namespaces
-
 namespace Architexor.Utils
 {
 	public class Util
 	{
+		#region HtmlNode
+		private static string GetJsonVariableValue(string scriptContent, string varName)
+		{
+			var pattern = $@"{varName}[^;]*;";
+
+			Match match = Regex.Match(scriptContent, pattern);
+			if (match.Success)
+			{
+				return match.Value;
+			}
+			return null;
+		}
+		private static string EditMapCenterLocation(string mapJsonVariableValue, double newLon, double newlat)
+		{
+			var newJsonCenberValue = mapJsonVariableValue;
+
+			Match centerMatch = Regex.Match(mapJsonVariableValue, @"center[^]]*]");
+			if (centerMatch.Success)
+			{
+				string center = centerMatch.Value;
+				Match match = Regex.Match(center, @"(-?\d+\.\d+), (-?\d+\.\d+)");
+				string oldLonString = match.Groups[1].Value;
+				string oldLatString = match.Groups[2].Value;
+
+				newJsonCenberValue = mapJsonVariableValue.Replace(oldLatString, newlat.ToString()).Replace(oldLonString, newLon.ToString());
+			}
+
+			return newJsonCenberValue;
+		}
+		public static void OpenNewPointsInHtml(List<GeoJsonFeature> features)
+		{
+			// Create a GeoJsonFeatureCollection with the provided features
+			GeoJsonFeatureCollection GeoJsonFeatureCollection = new GeoJsonFeatureCollection
+			{
+				type = "FeatureCollection",
+				LevelCount = 0,
+				LevelIndex = 0,
+				features = features
+			};
+
+			// Serialize the GeoJSON GeoJsonFeatureCollection to a JSON string
+			string geoJsonString = Newtonsoft.Json.JsonConvert.SerializeObject(GeoJsonFeatureCollection, Formatting.Indented);
+
+			// Load the HTML document from a file
+			HtmlDocument htmlDoc = new HtmlDocument();
+			string location = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+			var htmlFileLocation = Path.Combine(location, "lsi_centerPoint.html");
+			htmlDoc.Load(htmlFileLocation);
+			HtmlNode scriptTag = htmlDoc.DocumentNode.SelectSingleNode("//script[contains(., 'rawGeoJsonBasement')]");
+			string scriptContent = scriptTag.InnerHtml;
+
+			// Extract the current JSON variable value
+			string jsonVariableValue = GetJsonVariableValue(scriptContent, "var rawGeoJsonBasement");
+			// Extract the current JSON value of map
+			string jsonCenterValue = GetJsonVariableValue(scriptContent, "const map");
+			// Get the average longitude of the features
+
+			var averageLon = features.Average(x => x.geometry.CenterLon);
+			// Get the average latitude of the features
+			var averageLat = features.Average(x => x.geometry.CenterLat);
+
+			// Edit the map center point
+			var newJsonCenterValue = EditMapCenterLocation(jsonCenterValue, averageLon, averageLat);
+
+			// Replace the existing JSON variable value with the updated GeoJSON string
+			string modifiedScriptContent = scriptContent.Replace(jsonVariableValue, "var rawGeoJsonBasement = " + geoJsonString);
+			modifiedScriptContent = modifiedScriptContent.Replace(jsonCenterValue, newJsonCenterValue);
+			scriptTag.InnerHtml = modifiedScriptContent;
+			// Save the modified HTML to a new file
+			htmlDoc.Save(Path.Combine(location, "lsi_centerPoint1.html"));
+
+			// Open the new HTML file in the default web browser
+			Process.Start(Path.Combine(location, "lsi_centerPoint1.html"));
+		}
+		#endregion
+
+		#region Geographical Base
+		public static GeoBase GetGeoBase(Document doc)
+		{
+			/// Internal Origin is always (0,0,0)
+			XYZ internalOrigin = XYZ.Zero;
+
+			/// Interface Point to the real world of the Revit project
+			XYZ surveyPoint = null;
+
+			/// Location Setting from the ProjectLocation Manager - Site Location
+			ProjectLocation projectLocation = doc.ActiveProjectLocation;
+			SiteLocation siteLocation = projectLocation.GetSiteLocation();
+
+			/// Get project position of the zero point in ProjectLocation - Coordinate System
+			ProjectPosition position = projectLocation.GetProjectPosition(XYZ.Zero);
+
+			double longitude = siteLocation.Longitude * (180 / Math.PI);
+			double latitude = siteLocation.Latitude * (180 / Math.PI);
+			double angleInDegrees = position.Angle * (180 / Math.PI);
+			double basePtX = 0;
+			double basePtY = 0;
+
+			FilteredElementCollector locations = new FilteredElementCollector(doc).OfClass(typeof(BasePoint));
+			foreach (var loc in locations)
+			{
+				BasePoint basePt = loc as BasePoint;
+				if(basePt.Category.Name == "Survey Point")
+				{
+					// survey point - now use survey point as the origin
+					basePtX = basePt.Position.X;
+					basePtY = basePt.Position.Y;
+				}
+			}
+			return new GeoBase
+			{
+				Longitude = longitude,
+				Latitude = latitude,
+				AngleToNorth = angleInDegrees,
+				LongitudeOffset = basePtX,
+				LatitudeOffset = basePtY
+			};
+		}
+		#endregion
+
 		#region Geometrical Comparison
 		public const double _eps = 1.0e-4;//1.0e-9;
 
@@ -3622,34 +3744,34 @@ const T f = ( ay * bx ) - ( ax * by );
 			}
 			return value;
 		}
-		public static Group CreateGroup2(
-			this Document doc,
-			List<Element> elementos)
-		{
-			Group value = null;
-			ElementSet eleset = new ElementSet();
-			foreach (Element ele in elementos)
-			{
-				eleset.Insert(ele);
-			}
-			ICollection<ElementId> col = elementos
-			.Select(a => a.Id).ToList();
-			object obj = doc.Create;
-			MethodInfo met = obj.GetType()
-			.GetMethod("NewGroup", new Type[] { col.GetType() });
-			if (met != null)
-			{
-				met.Invoke(obj, new object[] { col });
-			}
-			else
-			{
-				met = obj.GetType()
-				.GetMethod("NewGroup", new Type[] { eleset.GetType() });
-				met.Invoke(obj,
-					new object[] { eleset });
-			}
-			return value;
-		}
+		//public static Group CreateGroup2(
+		//	this Document doc,
+		//	List<Element> elementos)
+		//{
+		//	Group value = null;
+		//	ElementSet eleset = new ElementSet();
+		//	foreach (Element ele in elementos)
+		//	{
+		//		eleset.Insert(ele);
+		//	}
+		//	ICollection<ElementId> col = elementos
+		//	.Select(a => a.Id).ToList();
+		//	object obj = doc.Create;
+		//	MethodInfo met = obj.GetType()
+		//	.GetMethod("NewGroup", new Type[] { col.GetType() });
+		//	if (met != null)
+		//	{
+		//		met.Invoke(obj, new object[] { col });
+		//	}
+		//	else
+		//	{
+		//		met = obj.GetType()
+		//		.GetMethod("NewGroup", new Type[] { eleset.GetType() });
+		//		met.Invoke(obj,
+		//			new object[] { eleset });
+		//	}
+		//	return value;
+		//}
 		public static void Delete2(
 			this Document doc,
 			Element ele)

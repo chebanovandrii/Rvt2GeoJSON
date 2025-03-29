@@ -1,16 +1,15 @@
-﻿using Architexor.GeoJSON.Base;
+﻿using Architexor.Forms.GeoJSON;
+using Architexor.GeoJSON.Base;
 using Architexor.Utils;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.Macros;
-using Autodesk.Revit.UI;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Web.UI.WebControls;
 using View = Autodesk.Revit.DB.View;
+using GeoPoint = Architexor.GeoJSON.Base.Point;
 
 namespace Architexor.Controllers.GeoJSON
 {
@@ -25,35 +24,92 @@ namespace Architexor.Controllers.GeoJSON
 		private double mLongitudeOffset;
 		private double mLatitudeOffset;
 		private bool mCurViewOnly = false;
+		private ExportType mType = ExportType.All;
 
-		public GeoJSONExporter(Document document, Level level, List<string> categories, double longitude, double latitude, double longitudeOffset, double latitudeOffset, double angle)
+		public GeoJSONExporter(Document document, Level level, List<string> categories, GeoBase geoBase, ExportType type)
 		{
 			mDocument = document;
 			mLevel = level;
-			mLongitude = longitude;
-			mLatitude = latitude;
-			mAngle = angle;
 			mCategories = categories;
-			mLongitudeOffset = longitudeOffset;
-			mLatitudeOffset = latitudeOffset;
+			mLongitude = geoBase.Longitude;
+			mLatitude = geoBase.Latitude;
+			mAngle = geoBase.Angle;
+			mLongitudeOffset = geoBase.LongitudeOffset;
+			mLatitudeOffset = geoBase.LatitudeOffset;
 			mCurViewOnly = false;
+			mType = type;
 		}
 
-		public GeoJSONExporter(Document document, List<string> categories, double longitude, double latitude, double longitudeOffset, double latitudeOffset, double angle)
+		public GeoJSONExporter(Document document, List<string> categories, GeoBase geoBase, ExportType type)
 		{
 			mDocument = document;
 			mLevel = document.ActiveView.GenLevel;
-			mLongitude = longitude;
-			mLatitude = latitude;
-			mAngle = angle;
 			mCategories = categories;
-			mLongitudeOffset = longitudeOffset;
-			mLatitudeOffset = latitudeOffset;
+			mLongitude = geoBase.Longitude;
+			mLatitude = geoBase.Latitude;
+			mAngle = geoBase.Angle;
+			mLongitudeOffset = geoBase.LongitudeOffset;
+			mLatitudeOffset = geoBase.LatitudeOffset;
 			mCurViewOnly = true;
+			mType = type;
 		}
 
 		#region Standard elements
-		private List<Element> GetVisibleElements()
+		private List<Element> GetElementsByCategory(int category, bool currentView)
+		{
+			if (currentView)
+			{
+				View curView = mDocument.ActiveView; // Get the active view
+				if (!(curView is ViewPlan curPlan))
+					return null;
+
+				// Collect all elements visible in the current view
+				List<Element> elements = new FilteredElementCollector(mDocument, curView.Id)
+					.WhereElementIsNotElementType()
+					.Where(e => (e.Category != null)
+#if REVIT2024 || REVIT2025
+				&& (category == e.Category.Id.Value)
+#else
+					&& (category == e.Category.Id.IntegerValue)
+#endif
+					).ToList();
+
+				return elements;
+			}
+			else
+			{
+				//	Collect elements in the specified level
+				List<Element> elements = new FilteredElementCollector(mDocument)
+																.WherePasses(new ElementLevelFilter(mLevel.Id))
+																.WhereElementIsNotElementType()
+																.Where(e => (e.Category != null)
+#if REVIT2024 || REVIT2025
+				&& (category == e.Category.Id.Value)
+#else
+					&& (category == e.Category.Id.IntegerValue)
+#endif
+				).ToList();
+
+				return elements;
+			}
+		}
+		private List<Element> GetLightingFixturesByLevel()
+		{
+			//	Collect elements in the specified level
+			List<Element> elements = new FilteredElementCollector(mDocument)
+															.WherePasses(new ElementLevelFilter(mLevel.Id))
+															.WhereElementIsNotElementType()
+															.Where(e => (e.Category != null)
+#if REVIT2024 || REVIT2025
+				&& (e.Category.Id.Value == (int)BuiltInCategory.OST_LightingFixtures)
+#else
+				&& (e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_LightingFixtures)
+#endif
+			).ToList();
+
+			return elements;
+		}
+		private List<Element> GetElementsInCurrentView()
 		{
 			View curView = mDocument.ActiveView; // Get the active view
 			if (!(curView is ViewPlan curPlan))
@@ -140,7 +196,7 @@ namespace Architexor.Controllers.GeoJSON
 
 			return elements;
 		}
-		private List<Element> GetElements()
+		private List<Element> GetElementsByLevel()
 		{
 			//	Collect elements in the specified level
 			List<Element> elements = new FilteredElementCollector(mDocument)
@@ -237,7 +293,7 @@ namespace Architexor.Controllers.GeoJSON
 			Options geomOptions = new Options
 			{
 				ComputeReferences = true,
-				IncludeNonVisibleObjects = true,
+				IncludeNonVisibleObjects = false,
 				View = floorPlanView, //	Use the target floor plan view
 			};
 
@@ -352,11 +408,11 @@ namespace Architexor.Controllers.GeoJSON
 		private bool IsPlanar(Curve curve)
 		{
 			//	Check if a curve is planar by verifying Z-coordinates (floor plan is assumed horizontal)
-			if (curve.IsBound)
+			if (null != curve && curve.IsBound)
 			{
 				return Math.Abs(curve.GetEndPoint(0).Z - curve.GetEndPoint(1).Z) < 0.001;
 			}
-			return true;
+			return false;
 			//&& Math.Abs(curve.GetEndPoint(0).Z - level.Elevation) < 0.001;
 			//return true;
 		}
@@ -526,13 +582,38 @@ namespace Architexor.Controllers.GeoJSON
 			};
 		}
 
+		private GeoJsonFeature CreateGeoJsonPoint(Element element)
+		{
+			var loc = (((FamilyInstance)element).Location as LocationPoint)?.Point;
+			double[] coordinate = ConvertToGeoJsonCoordinates(loc);
+			GeoPoint geometry = new GeoPoint { coordinates = coordinate };
+
+			Dictionary<string, object> properties = new Dictionary<string, object>
+			{
+#if REVIT2024 || REVIT2025
+				{ "id", element.Id.Value },
+#else
+				{ "id", element.Id.IntegerValue },
+#endif
+				{ "name", element.Name },
+				{ "category", element.Category?.Name }
+			};
+
+			//	Create and return the feature
+			return new GeoJsonFeature
+			{
+				geometry = geometry,
+				properties = properties
+			};
+		}
+
 		public List<GeoJsonFeature> CreateGeoJsonFeatures()
 		{
 			List<GeoJsonFeature> features = new List<GeoJsonFeature>();
 
 			if (mCurViewOnly)
 			{
-				List<Element> elements = GetVisibleElements();
+				List<Element> elements = GetElementsInCurrentView();
 
 				foreach (var element in elements)
 				{
@@ -546,7 +627,7 @@ namespace Architexor.Controllers.GeoJSON
 			}
 			else
 			{
-				List<Element> elements = GetElements();
+				List<Element> elements = GetElementsByLevel();
 
 				foreach (var element in elements)
 				{
@@ -559,6 +640,31 @@ namespace Architexor.Controllers.GeoJSON
 				}
 			}
 
+			List<Element> devices = new List<Element>();
+			if (mType == ExportType.LightingFixturePoints || mType == ExportType.All)
+			{
+				// Lighting Fixtures
+				List<Element> elems = GetElementsByCategory((int)BuiltInCategory.OST_LightingFixtures, mCurViewOnly);
+				if (null != elems && elems.Count > 0)
+				{
+					devices.AddRange(elems);
+				}
+			}
+			if (mType == ExportType.DataDevicePoints || mType == ExportType.All)
+			{
+				// Data Devices
+				List<Element> elems = GetElementsByCategory((int)BuiltInCategory.OST_DataDevices, mCurViewOnly);
+				if (null != elems && elems.Count > 0)
+				{
+					devices.AddRange(elems);
+				}
+			}
+			foreach (var device in devices)
+			{
+				features.Add(CreateGeoJsonPoint(device));
+			}
+
+			// Stairs
 			List<Element> stairsCollection = GetStairs();
 			foreach (var stairs in stairsCollection)
 			{
@@ -574,8 +680,12 @@ namespace Architexor.Controllers.GeoJSON
 				}
 			}
 
+			// Rooms
 			List<GeoJsonFeature> rooms = GetRoomPolygons();
-			features.AddRange(rooms);
+			if (null != rooms)
+			{
+				features.AddRange(rooms);
+			}
 
 			return features;
 		}
@@ -603,55 +713,69 @@ namespace Architexor.Controllers.GeoJSON
 			{
 				//	Get the boundaries of the room
 				IList<IList<BoundarySegment>> boundaryLoops = room.GetBoundarySegments(boundaryOptions);
-				foreach(IList<BoundarySegment> loop in boundaryLoops)
+
+				if(boundaryLoops.Count < 1)
 				{
-					List<XYZ> polygon = new List<XYZ>();
+					return null;
+				}
+				else if(boundaryLoops.Count < 2)
+				{
 
-					//	Extract points from each segment to form a polygon
-					foreach(BoundarySegment segment in loop)
+				}
+				else
+				{
+
+				}
+					foreach (IList<BoundarySegment> loop in boundaryLoops)
 					{
-						Curve curve = segment.GetCurve();
+						List<XYZ> polygon = new List<XYZ>();
 
-						//	Add start point of the curve to the polygon list
-						polygon.Add(curve.GetEndPoint(0));
-
-						//	Optionally handle curves (like arcs) for smoother polygons
-						if(curve is Arc arc)
+						//	Extract points from each segment to form a polygon
+						foreach (BoundarySegment segment in loop)
 						{
-							//	Divide the arc into points if needed to approximate curve as a polygon
-							int divisions = 10;	//	Higher for smoother arc approximation
-							for(int i = 0; i <= divisions; i++)
+						
+							Curve curve = segment.GetCurve();
+
+							//	Add start point of the curve to the polygon list
+							polygon.Add(curve.GetEndPoint(0));
+
+							//	Optionally handle curves (like arcs) for smoother polygons
+							if (curve is Arc arc)
 							{
-								double t = i / (double)divisions;
-								XYZ pointOnArc = arc.Evaluate(t, true);
-								polygon.Add(pointOnArc);
+								//	Divide the arc into points if needed to approximate curve as a polygon
+								int divisions = 10; //	Higher for smoother arc approximation
+								for (int i = 0; i <= divisions; i++)
+								{
+									double t = i / (double)divisions;
+									XYZ pointOnArc = arc.Evaluate(t, true);
+									polygon.Add(pointOnArc);
+								}
 							}
 						}
-					}
 
-					//	Close the polygon by adding the starting point at the end
-					if(polygon.Count > 0 && !polygon.First().IsAlmostEqualTo(polygon.Last()))
-					{
-						polygon.Add(polygon.First());
-					}
+						//	Close the polygon by adding the starting point at the end
+						if (polygon.Count > 0 && !polygon.First().IsAlmostEqualTo(polygon.Last()))
+						{
+							polygon.Add(polygon.First());
+						}
 
-					List<double[]> geoJsonCoordinates = new List<double[]>();
-					foreach(XYZ point in polygon)
-					{
-						geoJsonCoordinates.Add(ConvertToGeoJsonCoordinates(point));
-					}
-					//	Define geometry type (Polygon)
-					//Polygon geometry = new Polygon
-					//{
-					//	coordinates = new List<List<double[]>> { geoJsonCoordinates }
-					//};
-					MultiLineString geometry = new MultiLineString
-					{
-						coordinates = new List<List<double[]>> { geoJsonCoordinates }
-					};
+						List<double[]> geoJsonCoordinates = new List<double[]>();
+						foreach (XYZ point in polygon)
+						{
+							geoJsonCoordinates.Add(ConvertToGeoJsonCoordinates(point));
+						}
+						//	Define geometry type (Polygon)
+						Polygon geometry = new Polygon
+						{
+							coordinates = new List<List<double[]>> { geoJsonCoordinates }
+						};
+						//MultiLineString geometry = new MultiLineString
+						//{
+						//	coordinates = new List<List<double[]>> { geoJsonCoordinates }
+						//};
 
-					//	Define properties (name, category, etc.)
-					Dictionary<string, object> properties = new Dictionary<string, object>
+						//	Define properties (name, category, etc.)
+						Dictionary<string, object> properties = new Dictionary<string, object>
 					{
 #if REVIT2024 || REVIT2025
 						{ "id", room.Id.Value },
@@ -662,13 +786,13 @@ namespace Architexor.Controllers.GeoJSON
 						{ "category", room.Category?.Name }
 					};
 
-					//	Create and return the feature
-					roomPolygons.Add(new GeoJsonFeature
-					{
-						geometry = geometry,
-						properties = properties
-					});
-				}
+						//	Create and return the feature
+						roomPolygons.Add(new GeoJsonFeature
+						{
+							geometry = geometry,
+							properties = properties
+						});
+					}
 			}
 
 			return roomPolygons;
